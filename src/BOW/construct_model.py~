@@ -1,0 +1,97 @@
+import sys
+import os
+import ipdb
+import csv
+from collections import Counter
+import ConfigParser
+Config = ConfigParser.ConfigParser()
+
+Config.read("../../settings.cfg")
+sys.path.append("../NLP")
+from text_utilities import *
+
+class BOW_SVM(object):
+    """
+    Main class for building an SVM model !
+    """
+
+    def __init__(self):
+        """
+        Initialize the training Corpus
+        """
+
+        self.training_corpus = os.getenv('POLITENESS_HOME')+os.sep+Config.get('Corpora','training_file')
+        self.test_corpus = os.getenv('POLITENESS_HOME')+os.sep+Config.get('Corpora','testing_file')
+
+        # Min Frequency of words for omission in BOW Model
+        self.min_freq = int(Config.get('BOW','min_freq'))
+
+        # Initialize TextProcessor
+        self.nlp = TextProcess()
+
+        # Training Feature vectors
+        self.training_features=[]
+
+    def get_word_count_feature_vector(self,word_list):
+        """
+        Returns Word Frequency Counts
+        """
+        freq_dict = Counter(word_list)
+        return dict(freq_dict)
+
+
+    def process_request_text(self,corpora):
+        """
+        convert a given corpus to corresponding Feature Vector !!!
+        """
+        for each in corpora:
+            request = each['Request']
+            score = float(each['Normalized Score'])
+            politeness = 0
+
+            if score>0:
+                politeness =1
+            else:
+                politeness = -1
+
+        token_list = []
+        sentences = self.nlp.split_sentence(request)
+
+        for each_sent in sentences:
+            
+            # Stop Word Removal
+            each_sent = self.nlp.contractions_remove(each_sent)
+            tokens = self.nlp.tokenize(each_sent)
+            #tokens_filt = self.nlp.remove_stop_words(tokens)                
+            token_list.extend(tokens)              
+                
+        freq_dist = self.get_word_count_feature_vector(token_list)
+        self.training_features.append([freq_dist,politeness])        
+
+    def corpus_processor(self):
+        """
+        Process the Corpus !!
+        """
+
+        # Training File !
+        training_file = csv.DictReader(open(self.training_corpus,"rb"))
+        # Testing Corpus
+        test_file = csv.DictReader(open(self.test_corpus,"rb"))
+
+        self.process_request_text(training_file)
+
+
+
+if __name__=="__main__":
+    svm = BOW_SVM()
+    svm.corpus_processor()
+    ipdb.set_trace()
+
+    print "Hello"
+                
+        
+
+        
+        
+
+        
