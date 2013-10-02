@@ -1,0 +1,199 @@
+#!/usr/bin/env python
+import sys
+import os
+import ipdb
+import re
+
+class politeness_cue_extractor(object):
+    """
+    Extract linguistic politeness features for each piece of text
+    """
+    def __init__(self):
+        """
+        Initialize all word lists and corpora !!
+        """
+        positive_word_list = []
+        negative_word_list = []               
+
+        gratitude_expressions = ["appreciate","gratitude","thanks","thank you","thank","grateful"]
+        deference_expressions = ["work","task","endeavor","job","attempt"]
+        greeting_expressions = ["Hey","Hello","greetings","welcome","hola","shalom","Hi"]
+
+        apologies_expressions = ["Sorry","apologies","My apologies","apology","apologize"]
+        
+        positive_word_file = open("positive-words.txt","rb")
+        negative_word_file = open("negative-words.txt","rb")
+
+        question_terms = ["What","when","how","why","where","who","whose"]
+        first_person_plural = ["we","us"]
+        second_person = ['you']
+        first_person = ["my"]
+
+        indirect_expressions = ["By the way"]
+
+        direct_start = ["so"]
+
+        counterfactual = ["could","would"]
+        indicative = ["can","will"]
+        hedges = ["suggest"]
+        factuality = ["In fact","the fact is"]        
+
+        self.grat_word_re = re.compile("\\b%s\\b" %('|'.join(gratitude_expressions)),re.IGNORECASE)
+        self.apologies_word_re = re.compile("\\b%s\\b" %('|'.join(apologies_expressions)),re.IGNORECASE)
+        self.greet_re = re.compile("\\b%s\\b" %('|'.join(greeting_expressions)),re.IGNORECASE)
+        self.indirect_re = re.compile("\\b%s\\b" %('|'.join(indirect_expressions)),re.IGNORECASE)
+        self.question_re = re.compile("\\b%s\\b" %('|'.join(question_terms)),re.IGNORECASE)
+        self.direct_start_re = re.compile("\\b%s\\b" %('|'.join(direct_start)),re.IGNORECASE)
+        self.counterfactual_re = re.compile("\\b%s\\b" %('|'.join(counterfactual)),re.IGNORECASE)
+        self.indicative_re = re.compile("\\b%s\\b" %('|'.join(indicative)),re.IGNORECASE)
+        self.factual_re = re.compile("\\b%s\\b" %('|'.join(factuality)),re.IGNORECASE)
+        self.hedges_re = re.compile("\\b%s\\b" %('|'.join(hedges)),re.IGNORECASE)
+        self.first_person_re = re.compile("\\b%s\\b" %('|'.join(first_person)),re.IGNORECASE)        
+        self.first_person_plural_re = re.compile("\\b%s\\b" %('|'.join(first_person_plural)),re.IGNORECASE)
+
+        
+        for each in positive_word_file:
+            each = each.strip()
+            positive_word_list.append(re.escape(each))
+
+        self.pos_word_re = re.compile("\\b%s\\b" %('|'.join(positive_word_list)),re.IGNORECASE)
+
+        for each in negative_word_file:
+            each = each.strip()
+            negative_word_list.append(re.escape(each))
+
+
+        negative_word_list = list(set(negative_word_list))
+        self.neg_word_re = re.compile("\\b%s\\b" %('|'.join(negative_word_list)),re.IGNORECASE)
+
+        # Combine add positive expression for deference terms
+
+        deference_list = []
+        for each in positive_word_list:
+            for each_word in deference_expressions:
+                deference_list.append("%s %s" %(each,each_word))
+                
+        self.defer_re = re.compile("\\b%s\\b" %('|'.join(deference_list)),re.IGNORECASE)
+
+    def extract_features(self,text):
+        """
+        extract features
+        """
+        feature_vector = {'pos_word':0,
+                          'neg_word':0,
+                          'gratitude':0,
+                          'deference':0,
+                          'greeting':0,
+                          'apologizing':0,
+                          'please':0,
+                          'please_start':0,
+                          'indirect':0,
+                          'direct_question':0,
+                          'direct_start':0,
+                          'counterfactual':0,
+                          'indicative':0,
+                          '1st_person_start':0,
+                          '1st_person_plural':0,
+                          '1st_person':0,
+                          '2nd_person_start':0,
+                          'hedges':0,
+                          'factuality':0                                
+                          }
+        text = text.lower()
+        # Extract feature vectors for a Text !!
+        # Check all rules !!!! AAAh crap !!
+
+        if self.pos_word_re.findall(text):
+            feature_vector['pos_word'] = len(self.pos_word_re.findall(text))
+
+        if self.neg_word_re.findall(text):
+            feature_vector['neg_word'] = len(self.neg_word_re.findall(text))
+
+                
+        if self.grat_word_re.findall(text):
+            feature_vector['gratitude'] = len(self.grat_word_re.findall(text))
+
+        if self.defer_re.findall(text):
+            feature_vector['deference'] = len(self.defer_re.findall(text))
+
+        if self.greet_re.findall(text):
+            feature_vector['greeting'] = len(self.greet_re.findall(text))
+
+            
+        if self.apologies_word_re.findall(text):
+            feature_vector['apologizing'] = len(self.apologies_word_re.findall(text))
+
+            
+        text_tokens = text.split()
+        text_tokens = [each.lower() for each in text_tokens]
+
+        if 'please' in text_tokens:
+            if text_tokens[0]!='please':
+                if 'please' in text_tokens[1:]:
+                    feature_vector['please']=1
+
+
+        if text_tokens[0]=='please':
+            feature_vector['please_start']=1
+
+
+        if self.indirect_re.findall(text):
+            feature_vector['indirect']=len(self.indirect_re.findall(text))
+
+        if self.question_re.findall(text_tokens[0]):
+            feature_vector['direct_question']=1
+
+        if self.direct_start_re.findall(text_tokens[0]):
+            feature_vector['direct_start']=1
+
+        if self.counterfactual_re.findall(text_tokens[0]):
+            feature_vector['counterfactual']=1
+
+        if self.indicative_re.findall(text_tokens[0]):
+            feature_vector['indicative']=1
+
+        if text_tokens[0]=='i':
+            feature_vector['1st_person_start']=1
+
+        if self.first_person_re.findall(text):
+            feature_vector['1st_person']=1
+                
+        if self.first_person_plural_re.findall(text):
+            feature_vector['1st_person_plural']=1
+
+        if text_tokens[0]=='you':
+            feature_vector['2nd_person_start']=1
+
+        if self.hedges_re.findall(text):
+            feature_vector['hedges']=1
+
+        if self.factual_re.findall(text):
+            feature_vector['factuality']=1
+            
+        return feature_vector
+
+
+
+if __name__=="__main__":
+    print "Gello"
+    pol = politeness_cue_extractor()
+    ipdb.set_trace()
+    print pol.extract_features("You Why Hello Hi please please we my infact suggest sorry")
+                
+
+            
+
+                
+            
+
+
+
+
+    
+            
+            
+        
+
+        
+
+    
